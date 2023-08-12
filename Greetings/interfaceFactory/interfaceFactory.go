@@ -24,13 +24,13 @@ func GetSound(animals []string) {
 	fmt.Println()
 
 	for _, ani := range animals {
-		var d animal
+		var a animal
 		var err error
-		if d, err = getAnimal(ani); err != nil {
+		if a, err = getAnimal(ani); err != nil {
 			fmt.Printf("%+v \n", err)
-			break
+		} else {
+			fmt.Println(a.sound())
 		}
-		fmt.Println(d.sound())
 	}
 
 	fmt.Println()
