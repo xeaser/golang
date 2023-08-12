@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"runtime"
 	"sync"
 	"time"
 )
@@ -31,7 +32,8 @@ func scheduler(incoming <-chan Task, execChannel chan<- Task) {
 func executor(execChannel <-chan Task) {
 	for task := range execChannel {
 		fmt.Printf("Processing Task %d with data %s\n", task.ID, task.Data)
-		time.Sleep(time.Second)
+		time.Sleep(10 * time.Second)
+		fmt.Printf("Done %d\n", task.ID)
 	}
 }
 
@@ -45,6 +47,9 @@ func taskHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	// single threaded simulation
+	runtime.GOMAXPROCS(1)
+
 	http.HandleFunc("/enqueue", taskHandler)
 	fmt.Println("Serving requests on :8080")
 	if err := http.ListenAndServe(":8080", nil); err != nil {
