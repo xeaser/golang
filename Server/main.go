@@ -1,68 +1,98 @@
 package main
 
 import (
-	"fmt"
-	"net/http"
+	"bufio"
+	"io"
+	"log"
+	"net"
 	"os"
-	"runtime"
-	"sync"
-	"time"
+	"sort"
+	"strconv"
+	"strings"
 )
 
-type Task struct {
-	ID   int
-	Data interface{}
-}
-
-var (
-	taskQueue []Task
-	mutex     sync.Mutex
-	taskID    int
+const (
+	Message       = "Pong"
+	StopCharacter = "\r\n\r\n"
 )
 
-func scheduler(incoming <-chan Task, execChannel chan<- Task) {
-	for task := range incoming {
-		mutex.Lock()
-		taskQueue = append(taskQueue, task)
-		mutex.Unlock()
-		execChannel <- task
+func SocketServer(port int) {
+
+	listen, err := net.Listen("tcp4", ":"+strconv.Itoa(port))
+
+	if err != nil {
+		log.Fatalf("Socket listen port %d failed,%s", port, err)
+		os.Exit(1)
 	}
+
+	defer listen.Close()
+
+	log.Printf("Begin listen port: %d", port)
+
+	for {
+		conn, err := listen.Accept()
+		if err != nil {
+			log.Fatalln(err)
+			continue
+		}
+		go handler(conn)
+	}
+
 }
 
-func executor(execChannel <-chan Task) {
-	for task := range execChannel {
-		fmt.Printf("Processing Task %d with data %s\n", task.ID, task.Data)
-		time.Sleep(10 * time.Second)
-		fmt.Printf("Done %d\n", task.ID)
+func handler(conn net.Conn) {
+
+	defer conn.Close()
+
+	var (
+		buf = make([]byte, 1024)
+		r   = bufio.NewReader(conn)
+		w   = bufio.NewWriter(conn)
+	)
+
+ILOOP:
+	for {
+		n, err := r.Read(buf)
+		data := string(buf[:n])
+
+		switch err {
+		case io.EOF:
+			break ILOOP
+		case nil:
+			log.Println("Receive:", data)
+			if isTransportOver(data) {
+				break ILOOP
+			}
+
+		default:
+			log.Fatalf("Receive data failed:%s", err)
+			return
+		}
+
 	}
+	w.Write([]byte(Message))
+	w.Flush()
+	log.Printf("Send: %s", Message)
+
 }
 
-func taskHandler(w http.ResponseWriter, r *http.Request) {
-	data := r.URL.Query().Get("data")
-	task := Task{ID: taskID, Data: data}
-	taskID++
-
-	fmt.Fprintf(w, "Task enqueued with ID %d\n", task.ID)
-	go scheduleTask(task)
+func isTransportOver(data string) (over bool) {
+	over = strings.HasSuffix(data, "\r\n\r\n")
+	return
 }
 
 func main() {
-	// single threaded simulation
-	runtime.GOMAXPROCS(1)
 
-	http.HandleFunc("/enqueue", taskHandler)
-	fmt.Println("Serving requests on :8080")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
-		fmt.Println("Unable to serve")
-		os.Exit(-1)
+	port := 3333
+
+	SocketServer(port)
+
+	tasks := [][]int{
+		0: {1, 2},
 	}
-}
 
-func scheduleTask(task Task) {
-	incoming := make(chan Task)
-	execChannel := make(chan Task)
-	go scheduler(incoming, execChannel)
-	go executor(execChannel)
+	sort.SliceStable(tasks, func(i, j int) bool {
+		return tasks[i][0] < tasks[j][0]
+	})
 
-	incoming <- task
 }

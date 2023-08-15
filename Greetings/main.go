@@ -9,6 +9,7 @@ import (
 	"greetings/datatypes"
 	"greetings/embedding"
 	"greetings/interfaceFactory"
+	"greetings/race"
 	"greetings/selectCase"
 	"greetings/slices"
 	"greetings/switchCase"
@@ -17,6 +18,7 @@ import (
 func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/all", all)
+	mux.HandleFunc("/race", detectRace)
 
 	go bareBonesHttpServer(mux)
 
@@ -53,4 +55,10 @@ func all(w http.ResponseWriter, req *http.Request) {
 	selectCase.GetGoPath()
 	interfaceFactory.GetSound([]string{"Cat", "Dog", "Horse"})
 	embedding.Embed()
+	race.DetectRace()
+}
+
+func detectRace(w http.ResponseWriter, req *http.Request) {
+	fmt.Println(req.URL)
+	race.DetectRace()
 }
